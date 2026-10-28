@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishGuard - Email Phishing Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#edf1f6;--ink:#13203a;--mut:#5b6b85;--line:#d5dce7;--safe:#0e7c66;--warn:#c98a00;--bad:#c93c3c;--acc:#2347c5}
+*{box-sizing:border-box;margin:0}
+body{font:15px/1.5 'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.15}
+.hide{display:none!important}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.btn{background:var(--acc);color:#fff;border:1px solid var(--acc);padding:10px 20px;border-radius:8px;font-weight:500;transition:transform .15s,opacity .15s}
+.btn:active{transform:scale(.97)}.btn:disabled{opacity:.6}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+input,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+label{display:block;margin:12px 0 4px;font-weight:500}
+.err{color:var(--bad);min-height:22px;margin:6px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+/* Auth */
+#auth{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
+.hero{background:var(--ink);color:#fff;padding:64px;display:flex;flex-direction:column;justify-content:center;gap:22px}
+.hero h1{font-size:52px;font-weight:800;max-width:11ch}
+.hero p{color:#b9c6df;max-width:42ch}
+.mail{background:#1d2e50;border-radius:10px;padding:16px 18px;max-width:430px;color:#dbe4f5}
+mark{color:inherit;background:linear-gradient(#ff6b6b,#ff6b6b) 0 100%/0 3px no-repeat;animation:ul .8s ease forwards}
+mark:nth-child(2){animation-delay:.6s}mark:nth-child(3){animation-delay:1.2s}mark:nth-child(4){animation-delay:1.8s}
+@keyframes ul{to{background-size:100% 3px}}
+.authbox{display:flex;align-items:center;justify-content:center;padding:32px}
+.authbox form{width:100%;max-width:360px}
+.tabs{display:flex;gap:8px;margin-bottom:10px}.tabs button{flex:1}
+/* App */
+#app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+aside{background:#fff;border-right:1px solid var(--line);padding:24px 14px;display:flex;flex-direction:column;gap:6px}
+aside h2{font-size:22px;margin:0 0 18px 8px}
+.nav{background:none;border:0;text-align:left;padding:10px 12px;border-radius:8px;color:var(--mut)}
+.nav.on{background:var(--bg);color:var(--ink);font-weight:500}
+main{padding:28px 32px;max-width:1120px;width:100%}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.top h1{font-size:30px}.top span{color:var(--mut);margin-right:8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat span{color:var(--mut)}.stat b{display:block;font:800 36px 'Bricolage Grotesque',system-ui}
+.charts{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:14px}
+.wide{grid-column:1/-1}.charts h3{font-size:17px;margin-bottom:10px}
+canvas{max-height:270px}
+.scan{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start}
+.gauge{width:100%;max-width:300px;display:block;margin:0 auto}
+#arc{transition:stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1)}
+.chip{display:inline-block;padding:2px 12px;border-radius:99px;font-size:13px;font-weight:500}
+.Safe{background:#dff3ee;color:var(--safe)}.Suspicious{background:#fbefcf;color:#8a5f00}.Phishing{background:#f9dcdc;color:var(--bad)}
+#result h3{margin:14px 0 6px;font-size:16px}#result ul{padding-left:20px}
+#rKw span{display:inline-block;background:var(--bg);border-radius:6px;padding:2px 8px;margin:4px 4px 0 0;font-size:13px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:500}td .btn{padding:4px 12px}
+.snip{max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:820px){#auth,#app,.scan,.charts{grid-template-columns:1fr}.hero{padding:36px 24px}.hero h1{font-size:38px}
+aside{flex-direction:row;overflow-x:auto;padding:12px}aside h2{margin:0 12px 0 0}.grid4{grid-template-columns:1fr 1fr}main{padding:18px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}mark{background-size:100% 3px}}
+</style></head><body>
+
+<div id="auth">
+  <div class="hero">
+    <h1>Check the email before you click it.</h1>
+    <p>Paste any suspicious email. PhishGuard scores the risk, points out the warning signs and keeps your scan history.</p>
+    <div class="mail"><mark>Urgent:</mark> your account is <mark>suspended</mark>. <mark>Verify your password</mark> at <mark>http://secure-paypa1.xyz/login</mark></div>
+  </div>
+  <div class="authbox">
+    <form id="authForm">
+      <div class="tabs"><button type="button" class="btn on" id="tLogin">Log in</button><button type="button" class="btn ghost" id="tReg">Register</button></div>
+      <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
+      <label for="pass">Password (min 6 characters)</label><input id="pass" type="password" minlength="6" required autocomplete="current-password">
+      <p class="err" id="authMsg"></p>
+      <button class="btn" id="authBtn" style="width:100%">Log in</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <aside><h2>PhishGuard</h2>
+    <button class="nav on" data-v="dash">Dashboard</button>
+    <button class="nav" data-v="scan">Scan email</button>
+    <button class="nav" data-v="hist">History</button>
+  </aside>
+  <main>
+    <div class="top"><h1 id="title"></h1><div><span id="who"></span><button class="btn ghost" id="out">Log out</button></div></div>
+
+    <section id="v-dash" class="view">
+      <div class="grid4">
+        <div class="card stat"><span>Emails scanned</span><b id="sTotal">0</b></div>
+        <div class="card stat"><span>Phishing found</span><b id="sBad" style="color:var(--bad)">0</b></div>
+        <div class="card stat"><span>Safe emails</span><b id="sSafe" style="color:var(--safe)">0</b></div>
+        <div class="card stat"><span>Average risk</span><b id="sAvg">0</b></div>
+      </div>
+      <p id="empty" class="card hide" style="margin-top:14px">No scans yet. Open <b>Scan email</b> and paste your first email to fill this dashboard.</p>
+      <div class="charts">
+        <div class="card"><h3>Scans in the last 7 days</h3><canvas id="cLine"></canvas></div>
+        <div class="card"><h3>Results split</h3><canvas id="cPie"></canvas></div>
+        <div class="card wide"><h3>Most common suspicious phrases</h3><canvas id="cBar"></canvas></div>
+      </div>
+    </section>
+
+    <section id="v-scan" class="view hide">
+      <div class="scan">
+        <div class="card">
+          <label for="emailText" style="margin-top:0">Paste the email (subject, body and links)</label>
+          <textarea id="emailText" rows="12"></textarea>
+          <p class="err" id="scanErr"></p>
+          <div class="row"><button class="btn" id="scanBtn">Scan email</button><button class="btn ghost" id="sample">Try a sample</button></div>
+        </div>
+        <div class="card hide" id="result">
+          <svg viewBox="0 0 200 120" class="gauge" role="img" aria-label="Risk score gauge">
+            <path d="M20 100A80 80 0 0 1 180 100" fill="none" stroke="#e3e8f0" stroke-width="16" stroke-linecap="round"/>
+            <path id="arc" d="M20 100A80 80 0 0 1 180 100" fill="none" stroke-width="16" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+            <text id="gNum" x="100" y="96" text-anchor="middle" font-size="34" font-weight="800" fill="#13203a">0</text>
+            <text x="100" y="114" text-anchor="middle" font-size="10" fill="#5b6b85">risk score out of 100</text>
+          </svg>
+          <div style="text-align:center"><span id="rChip" class="chip"></span></div>
+          <h3>Why this result</h3><ul id="rWhy"></ul>
+          <h3>Suspicious phrases</h3><div id="rKw"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="v-hist" class="view hide"><div class="card" style="overflow-x:auto">
+      <table><thead><tr><th>Date</th><th>Email</th><th>Result</th><th>Risk</th><th></th></tr></thead><tbody id="hBody"></tbody></table>
+      <p id="hEmpty" class="hide" style="padding:14px 8px;color:var(--mut)">Nothing here yet. Scanned emails will appear in this list.</p>
+    </div></section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RM=matchMedia('(prefers-reduced-motion:reduce)').matches,COL={Safe:'#0e7c66',Suspicious:'#c98a00',Phishing:'#c93c3c'};
+const TITLES={dash:'Dashboard',scan:'Scan an email',hist:'Scan history'};
+let sb,token,charts=[],mode='login';
+Chart.defaults.animation=RM?false:{duration:900};Chart.defaults.font.family="'IBM Plex Sans',system-ui";
+
+async function api(p,o={}){const r=await fetch('/api/'+p,{...o,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Request failed');return j;}
+function countUp(el,to){if(RM||!to){el.textContent=to;return}const t0=performance.now();(function f(t){const p=Math.min((t-t0)/900,1);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f)})(t0)}
+
+/* Auth */
+async function boot(){const c=await(await fetch('/api/config')).json();sb=supabase.createClient(c.url,c.anon);
+  const {data}=await sb.auth.getSession();setSession(data.session);sb.auth.onAuthStateChange((_e,s)=>setSession(s));}
+function setSession(s){const was=!!token;token=s?.access_token;$('#auth').classList.toggle('hide',!!s);$('#app').classList.toggle('hide',!s);
+  if(s){$('#who').textContent=s.user.email;if(!was)show('dash')}}
+function setMode(m){mode=m;$('#tLogin').className='btn '+(m==='login'?'on':'ghost');$('#tReg').className='btn '+(m==='reg'?'on':'ghost');
+  $('#authBtn').textContent=m==='login'?'Log in':'Create account';$('#authMsg').textContent=''}
+$('#tLogin').onclick=()=>setMode('login');$('#tReg').onclick=()=>setMode('reg');
+$('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#email').value,password=$('#pass').value,m=$('#authMsg');m.textContent='';
+  const r=mode==='login'?await sb.auth.signInWithPassword({email,password}):await sb.auth.signUp({email,password});
+  if(r.error)m.textContent=r.error.message;else if(!r.data.session)m.textContent='Account created. Confirm the email we sent, then log in.'};
+$('#out').onclick=()=>sb.auth.signOut();
+
+/* Navigation */
+document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>show(b.dataset.v));
+function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hide',x.id!=='v-'+v));
+  document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#title').textContent=TITLES[v];
+  if(v==='dash')loadDash();if(v==='hist')loadHist()}
+
+/* Dashboard */
+async function loadDash(){let s;try{s=await api('stats')}catch(e){return}
+  countUp($('#sTotal'),s.total);countUp($('#sBad'),s.Phishing);countUp($('#sSafe'),s.Safe);countUp($('#sAvg'),s.avg);
+  $('#empty').classList.toggle('hide',s.total>0);charts.forEach(c=>c.destroy());
+  charts=[new Chart($('#cLine'),{type:'line',data:{labels:s.days.map(d=>d.label),datasets:[{label:'Scans',data:s.days.map(d=>d.count),borderColor:'#2347c5',backgroundColor:'rgba(35,71,197,.12)',fill:true,tension:.35}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}),
+    new Chart($('#cPie'),{type:'doughnut',data:{labels:['Safe','Suspicious','Phishing'],datasets:[{data:[s.Safe,s.Suspicious,s.Phishing],backgroundColor:Object.values(COL)}]},options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}}),
+    new Chart($('#cBar'),{type:'bar',data:{labels:s.keywords.map(k=>k[0]),datasets:[{label:'Times found',data:s.keywords.map(k=>k[1]),backgroundColor:'#c93c3c',borderRadius:6}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}})]}
+
+/* Scan */
+$('#sample').onclick=()=>{$('#emailText').value='Subject: URGENT - Your PayPal account has been suspended!\n\nDear customer, we noticed unusual activity. Verify your password and card number within 24 hours or your account will be locked.\n\nClick here: http://secure-paypa1-login.xyz/verify'};
+$('#scanBtn').onclick=async()=>{const b=$('#scanBtn');$('#scanErr').textContent='';b.disabled=true;b.textContent='Scanning...';
+  try{showResult(await api('scan',{method:'POST',body:JSON.stringify({text:$('#emailText').value})}))}catch(e){$('#scanErr').textContent=e.message}
+  b.disabled=false;b.textContent='Scan email'};
+function showResult(r){$('#result').classList.remove('hide');const arc=$('#arc'),c=COL[r.verdict];arc.style.stroke=c;arc.style.strokeDashoffset=251.3;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>arc.style.strokeDashoffset=251.3*(1-r.risk_score/100)));countUp($('#gNum'),r.risk_score);
+  const chip=$('#rChip');chip.textContent=r.verdict;chip.className='chip '+r.verdict;
+  $('#rWhy').innerHTML=r.reasons.map(x=>'<li>'+esc(x)+'</li>').join('');
+  $('#rKw').innerHTML=r.keywords.length?r.keywords.map(k=>'<span>'+esc(k)+'</span>').join(''):'<span>None found</span>'}
+
+/* History */
+async function loadHist(){let rows;try{rows=await api('history')}catch(e){return}
+  $('#hEmpty').classList.toggle('hide',rows.length>0);
+  $('#hBody').innerHTML=rows.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</td><td class="snip">${esc(r.email_text.slice(0,90))}</td><td><span class="chip ${r.verdict}">${r.verdict}</span></td><td>${r.risk_score}</td><td class="row"><button class="btn ghost" data-open="${r.id}">View</button><button class="btn ghost" data-del="${r.id}">Delete</button></td></tr>`).join('');
+  $('#hBody').onclick=async e=>{const o=e.target.dataset.open,d=e.target.dataset.del;
+    if(o){const r=rows.find(x=>x.id===o);show('scan');$('#emailText').value=r.email_text;showResult(r)}
+    if(d&&confirm('Delete this scan?')){await api('history/'+d,{method:'DELETE'});loadHist()}}}
+boot();
+</script></body></html>
